@@ -113,4 +113,15 @@ Jetpack Compose는 **안드로이드 네이티브 UI**를 구축하기 위한 �
   ```
   - `count`라는 변수를 내부에서 직접 관리하므로 **Stateful Composable**입니다.  
 
----
+-------------------------------
+
+**`remember`**, **`mutableStateOf`**, **`State`**는 모두 **Jetpack Compose**에서 상태 관리와 관련된 중요한 개념이다. 이 세 가지의 차이점과 역할을 이해하는 것이 Compose에서 상태를 관리하는 데 매우 중요하다
+
+
+1. **`remember`**: 상태를 **기억**하게 해주는 함수로, `@Composable` 함수에서 상태를 저장하고 재구성 시 상태가 초기화되지 않도록 도와줍니다.
+   
+2. **`mutableStateOf`**: 상태를 **변경 가능한 객체**로 선언하는 함수로, 상태 값이 변경되면 **UI가 갱신**됩니다. `mutableStateOf`는 `State` 객체의 **변경 가능한 버전**인 `MutableState` 객체를 반환합니다.
+
+3. **`State`**: **읽기 전용 상태 객체**로, Compose에서 상태 값을 **읽기**만 할 수 있습니다. 상태 값을 **변경하려면 `MutableState`**를 사용해야 합니다.
+
+
