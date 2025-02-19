@@ -1,9 +1,13 @@
 jetpack compose가 ui를 그리는 과정은 컴포지션, 레이아웃(측정, 배치), 그리기 주요한 3가지 단계가 있다 
 컴포지션 단계에서는 composable 함수를 실행하고 composeable 함수가 의미하는 ui 애 대한 자세한 설명을 만듭니다
+
 ![image](https://github.com/user-attachments/assets/131857c3-62f5-4579-989a-a9978cc9ded2)
+
 composable 함수 -> ui tree
 레이아웃 단계에서는 ui tree 의 각 노드가 실제 핸드폰에서 어떤 크기를 가지고 어떤 위치를 차지할지 결정한다
+
 ![image](https://github.com/user-attachments/assets/97b9bde8-800b-47ec-ad5b-74a87b8efba3)
+
 레이아웃 단계는 측정과 배치 2단계로 나눠지는데 
 컴포지션 단계에서 생성된 ui tree 를 처리할때 
 하위 요소 측정: 노드의 하위요소가 있는경우에 노드가 하위 요소를 측정합니다.
