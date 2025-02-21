@@ -31,8 +31,9 @@ rememberCoroutineScope는 LaunchedEffect와 다르게 호출돠는 컴포지션�
 
 rememberUpdatedState 정리
 
-  remember로 저장된 값이 재구성 시 최신 값으로 갱신되도록 해, 부수 효과(예: LaunchedEffect)나 코루틴이 항상 최신 값을 사용하도록 보장한다.
-  remember는 첫 컴포지션 때만 초기화되므로, 이후 값 변경이 부수 효과에 반영되지 않는 문제를 해결한다.
+  remember로 저장된 값이 재구성 시 최신 값으로 갱신되도록 해서 
+  부수 효과(예: LaunchedEffect)나 코루틴이 항상 최신 값을 사용하도록 보장한다.
+  remember는 첫 컴포지션 때만 초기화되므로, 이후 값 변경이 반영되지 않는 문제를 해결한다.
   효과를 재실행하지 않고, 타이머, 네트워크 요청, 애니메이션 등에서 최신 값을 반영해야 할 때 유용하다.
 
   ```kotlin
