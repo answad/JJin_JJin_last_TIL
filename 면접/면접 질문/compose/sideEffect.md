@@ -127,12 +127,14 @@ fun MessageList(messages: List<Message>) {
     }
 }
 ```
-이 코드를 보면 derivedStateOf 가 없었다면 listState.firstVisibleItemIndex 가 1,2,3,4.... 일때는 listState.firstVisibleItemIndex > 0
-의 값이 true 임에도 showButton 의 값이 바뀌었다고 판단해서 불필요한 리컴포징을 트리거 했을것이다
+이 코드를 보면 derivedStateOf 가 없었다면 listState.firstVisibleItemIndex 가 1,2,3,4.... 일때는 listState.firstVisibleItemIndex > 0의 값이 true 임에도 showButton 의 값이 바뀌었다고 판단해서 불필요한 리컴포징을 트리거 했을것이다
+
 그러나 derivedStateOf를 사용해서 실제 값이 변하지 않았을때는 새로운 state 를 반환하지 않아서 불필요한 리컴포징을 줄일수 있다
+
 주의!!! derivedStateOf는 오버해드가 큼으로 리컴포징을 줄이기 위해 사용하여야한다
 
 snapshotFlow 정리
 
 snapshotFlow는 반환값이 있는 함수블록을 파라미터로 받는다 기본적으로 cold Flow 를 반환하고 
+
 파라미터로 받은 블록의 반환값이 이전값과 다를때에만 새로운 값을 반환한다(distinctUntilChanged) 맞춤법 틀린거 있으면 수정해
