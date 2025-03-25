@@ -152,6 +152,7 @@ Call의 execute 함수를 사용해서 실제로 요청을 보내고
 use함수로 요청의 결과를 사용하고 response 객체를 처리한다
 이중에서 execute에서 connection pool 을 사용한다 
 
+OkHttpClient
 ```kotlin
   override fun newCall(request: Request): Call = RealCall(this, request, forWebSocket = false)
 ```
@@ -171,7 +172,7 @@ RealCall.execute()
     }
   }
 ```
-함수 내부에서 getResponseWithInterceptorChain를 호출하는데 
+함수 내부에서 RealCall.getResponseWithInterceptorChain를 호출하는데 
 ```kotlin
 
   @Throws(IOException::class)
@@ -245,6 +246,7 @@ class RetryAndFollowUpInterceptor(private val client: OkHttpClient) : Intercepto
 
 ```
 
+ RealCall 의
 ```kotlin
   fun enterNetworkInterceptorExchange(request: Request, newExchangeFinder: Boolean) {
     check(interceptorScopedExchange == null)
@@ -267,6 +269,8 @@ class RetryAndFollowUpInterceptor(private val client: OkHttpClient) : Intercepto
     }
   }
 ```
+
+
 ```kotlin
 class ExchangeFinder(
   private val connectionPool: RealConnectionPool,
@@ -323,114 +327,87 @@ class ExchangeFinder(
     pingIntervalMillis: Int,
     connectionRetryEnabled: Boolean
   ): RealConnection {
-    if (call.isCanceled()) throw IOException("Canceled")
-
-    // Attempt to reuse the connection from the call.
-    val callConnection = call.connection // This may be mutated by releaseConnectionNoEvents()!
-    if (callConnection != null) {
-      var toClose: Socket? = null
-      synchronized(callConnection) {
-        if (callConnection.noNewExchanges || !sameHostAndPort(callConnection.route().address.url)) {
-          toClose = call.releaseConnectionNoEvents()
-        }
-      }
-
-      // If the call's connection wasn't released, reuse it. We don't call connectionAcquired() here
-      // because we already acquired it.
-      if (call.connection != null) {
-        check(toClose == null)
-        return callConnection
-      }
-
-      // The call's connection was released.
-      toClose?.closeQuietly()
-      eventListener.connectionReleased(call, callConnection)
-    }
-
-    // We need a new connection. Give it fresh stats.
-    refusedStreamCount = 0
-    connectionShutdownCount = 0
-    otherFailureCount = 0
-
+    ...
     // Attempt to get a connection from the pool.
-    if (connectionPool.callAcquirePooledConnection(address, call, null, false)) {
+    if (connectionPool.callAcquirePooledConnection(address, call, null, false)) { // 중요
       val result = call.connection!!
       eventListener.connectionAcquired(call, result)
       return result
     }
+    ...
+  }
+}
+```
 
-    // Nothing in the pool. Figure out what route we'll try next.
-    val routes: List<Route>?
-    val route: Route
-    if (nextRouteToTry != null) {
-      // Use a route from a preceding coalesced connection.
-      routes = null
-      route = nextRouteToTry!!
-      nextRouteToTry = null
-    } else if (routeSelection != null && routeSelection!!.hasNext()) {
-      // Use a route from an existing route selection.
-      routes = null
-      route = routeSelection!!.next()
-    } else {
-      // Compute a new route selection. This is a blocking operation!
-      var localRouteSelector = routeSelector
-      if (localRouteSelector == null) {
-        localRouteSelector = RouteSelector(address, call.client.routeDatabase, call, eventListener)
-        this.routeSelector = localRouteSelector
-      }
-      val localRouteSelection = localRouteSelector.next()
-      routeSelection = localRouteSelection
-      routes = localRouteSelection.routes
-
-      if (call.isCanceled()) throw IOException("Canceled")
-
-      // Now that we have a set of IP addresses, make another attempt at getting a connection from
-      // the pool. We have a better chance of matching thanks to connection coalescing.
+```kotlin
       if (connectionPool.callAcquirePooledConnection(address, call, routes, false)) {
         val result = call.connection!!
         eventListener.connectionAcquired(call, result)
         return result
       }
-
-      route = localRouteSelection.next()
-    }
-
-    // Connect. Tell the call about the connecting call so async cancels work.
-    val newConnection = RealConnection(connectionPool, route)
-    call.connectionToCancel = newConnection
-    try {
-      newConnection.connect(
-          connectTimeout,
-          readTimeout,
-          writeTimeout,
-          pingIntervalMillis,
-          connectionRetryEnabled,
-          call,
-          eventListener
-      )
-    } finally {
-      call.connectionToCancel = null
-    }
-    call.client.routeDatabase.connected(newConnection.route())
-
-    // If we raced another call connecting to this host, coalesce the connections. This makes for 3
-    // different lookups in the connection pool!
-    if (connectionPool.callAcquirePooledConnection(address, call, routes, true)) {
-      val result = call.connection!!
-      nextRouteToTry = route
-      newConnection.socket().closeQuietly()
-      eventListener.connectionAcquired(call, result)
-      return result
-    }
-
-    synchronized(newConnection) {
-      connectionPool.put(newConnection)
-      call.acquireConnectionNoEvents(newConnection)
-    }
-
-    eventListener.connectionAcquired(call, newConnection)
-    return newConnection
-  }
-}
 ```
-.... 오늘은 여기까지..
+이코드를 한줄한줄 봐보면 
+RealConnectionPool.callAcquirePooledConnection
+
+```kotlin
+  fun callAcquirePooledConnection(
+    address: Address,
+    call: RealCall,
+    routes: List<Route>?,
+    requireMultiplexed: Boolean
+  ): Boolean {
+    for (connection in connections) {
+      synchronized(connection) {
+        if (requireMultiplexed && !connection.isMultiplexed) return@synchronized
+        if (!connection.isEligible(address, routes)) return@synchronized
+        call.acquireConnectionNoEvents(connection)
+        return true
+      }
+    }
+    return false
+  }
+```
+이 함수는 connections을 순회하면서 조건에 맞는 connection이 있으면 RealCall.acquireConnectionNoEvents함수를 실행시키고  true를 반환하고 없으면 false 를 함환한다
+
+
+RealCall.acquireConnectionNoEvents
+```kotlin
+  fun acquireConnectionNoEvents(connection: RealConnection) {
+    connection.assertThreadHoldsLock()
+
+    check(this.connection == null)
+    this.connection = connection
+    connection.calls.add(CallReference(this, callStackTrace))
+  }
+```
+
+이 함수는
+Realcall 객체의 connection 변수를 파라미터로 받은 connection으로 바꾸고 
+CallReference(this, callStackTrace) 객체를 생성해서 현재 연결(connection)의 calls 리스트에 추가한다
+
+그리고 바뀐 connection 을 
+val result = call.connection!!
+변숭에 저장하고 
+```kotlin
+   eventListener.connectionAcquired(call, result)
+```
+connectionAcquired 함수는 eventListener에 연결을 알리는 콜백이다
+
+또 find함수 안에서 resultConnection.newCodec(client, chain)라는 코드가 있는데 RealConnection.newCodec 함수는 
+적절한 http 설정이 안되어있으면 http 버전을 설정하고 소켓 타임아웃 설정후에 ExchangeCodec객체를 반환한다
+
+이렇게ExchangeFinder.find 함수는 connection을 재홍룔한 ExchangeCodec을 반환한다 
+
+그 후 RealCall.initExchange
+함수가 find함수로 받아온 ExchangeFinder객체로 Exchange객체를 생성한다
+
+이 클래스는 네트웨크 요청의 헤더, 바디를 작성하거나 읽는 역할이다 
+
+그리고 Exchange객체를 interceptorScopedExchange, exchange변수에 각각 저장하는데 
+RetryAndFollowUpInterceptor에서 interceptorScopedExchange 변수를 참조해서 연결을 재사용한다
+
+
+이게 끝이다 그런데 뭔가 중간에 길을잘못 찾은거같기도 하고 내가봐도 이해가 안되고..
+
+다음번에는 okhttp 전체를 이해하고 connection pool 애 대해서 설명을 해야겠다
+라이브러리 뜯어보는게 재미 있어서 그냥 막 시작했는데 조금 급했던거같다
