@@ -46,3 +46,11 @@ fun fetchData(continuation: Continuation): Any? {
 * **상태 머신**: `continuation.state`는 코루틴의 실행 상태를 추적하는 데 사용된다.
 * **Continuation**: `continuation` 객체는 코루틴의 현재 상태와 다음 실행 위치를 저장한다.
 * **일시 중단 및 재개**: `delay` 함수는 실행을 일시 중단하고 `continuation`을 사용하여 나중에 다시 시작한다.
+
+-----
+
+suspend가 붙은 함수는
+
+숙제 푸는것처럼 숙제를 하다가 다른일을 하다가 다시 숙제를 할수있는 것처럼
+
+cpu가 함수를 처리하다가 다른 일을 처리하고 다시 함수를 처리하러 올수있는 함수이다
