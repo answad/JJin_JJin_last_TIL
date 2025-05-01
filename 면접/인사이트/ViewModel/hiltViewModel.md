@@ -10,3 +10,35 @@ Compose + Jetpack Navigation 환경에서는 이 ViewModelStoreOwner가 NavBackS
 예시로 ViewModel에서 Repository나 UseCase 등을 생성자 파라미터로 요구할 경우, 기존 방식처럼 ViewModelFactory를 일일이 작성하고 ViewModelProvider에 전달할 필요 없이, Hilt가 자동으로 컴파일 타임에 생성자 기반으로 팩토리를 만들어준다
 이 구조 덕분에 개발자는 의존성 주입에 대한 번거로운 설정 없이 깔끔하게 ViewModel을 구성할 수 있고, 테스트할 때도 같은 구조로 mocking된 의존성을 주입할 수 있다
 또한 SavedStateHandle도 자동으로 받아올수있다
+
+```kotlin
+@Composable
+inline fun <reified VM : ViewModel> hiltViewModel(
+    viewModelStoreOwner: ViewModelStoreOwner = checkNotNull(LocalViewModelStoreOwner.current) {
+        "No ViewModelStoreOwner was provided via LocalViewModelStoreOwner"
+    },
+    key: String? = null
+): VM {
+    val factory = createHiltViewModelFactory(viewModelStoreOwner)
+    return viewModel(viewModelStoreOwner, key, factory = factory)
+}
+```
+
+```kotlin
+@MainThread
+public inline fun <reified VM : ViewModel> ComponentActivity.viewModels(
+    noinline extrasProducer: (() -> CreationExtras)? = null,
+    noinline factoryProducer: (() -> Factory)? = null
+): Lazy<VM> {
+    val factoryPromise = factoryProducer ?: {
+        defaultViewModelProviderFactory
+    }
+
+    return ViewModelLazy(
+        VM::class,
+        { viewModelStore },
+        factoryPromise,
+        { extrasProducer?.invoke() ?: this.defaultViewModelCreationExtras }
+    )
+}
+```
